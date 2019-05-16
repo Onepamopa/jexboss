@@ -222,7 +222,10 @@ def check_vul(url):
     """
     url_check = parse_url(url)
     if '443' in str(url_check.port) and url_check.scheme != 'https':
-        url = "https://"+str(url_check.host)+":"+str(url_check.port)+str(url_check.path)
+        if url_check.path is None:
+            url = "https://"+str(url_check.host)+":"+str(url_check.port)+"/"
+        else:
+            url = "https://"+str(url_check.host)+":"+str(url_check.port)+str(url_check.path)
 
     print_and_flush(GREEN + "\n ** Checking Host: %s **\n" % url)
     logging.info("Checking Host: %s" % url)
